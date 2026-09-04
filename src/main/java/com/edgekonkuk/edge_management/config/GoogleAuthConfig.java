@@ -118,7 +118,24 @@ public class GoogleAuthConfig {
         throw new IOException(
                 "서비스 계정 키를 찾을 수 없습니다. 클라우드 배포 시에는 GOOGLE_SERVICE_ACCOUNT_KEY_JSON 환경변수에 "
                         + "키 JSON(또는 base64 인코딩값)을 넣으세요. 로컬 개발은 GOOGLE_APPLICATION_CREDENTIALS 경로 "
-                        + "또는 classpath의 credentials/service-account.json 을 사용합니다.");
+                        + "또는 classpath의 credentials/service-account.json 을 사용합니다."
+                        + System.lineSeparator()
+                        + "[진단] 프로세스에 보이는 관련 환경변수 이름: " + visibleRelevantEnvNames());
+    }
+
+    /**
+     * 설정 누락을 진단하기 위해 관련 환경변수의 "이름"만 나열한다.
+     * 값은 어떤 경우에도 로그에 남기지 않는다.
+     */
+    private static String visibleRelevantEnvNames() {
+        List<String> names = System.getenv().keySet().stream()
+                .filter(n -> n.startsWith("GOOGLE_") || n.startsWith("APP_")
+                        || n.startsWith("AUTH_") || n.equals("PORT"))
+                .sorted()
+                .toList();
+        return names.isEmpty()
+                ? "(없음 - 컨테이너에 관련 환경변수가 하나도 주입되지 않았습니다)"
+                : String.join(", ", names);
     }
 
     private InputStream keyStreamFromContent() throws IOException {
