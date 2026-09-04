@@ -38,3 +38,7 @@ out/
 
 # Local app configuration (do not commit secrets)
 credentials/
+*service-account*.json
+.env
+.env.*
+!.env.example

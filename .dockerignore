@@ -1,0 +1,16 @@
+.git
+.gitignore
+.gitattributes
+build
+.gradle
+.idea
+*.iml
+out
+bin
+credentials
+*.env
+.env*
+README.md
+HELP.md
+Dockerfile.vercel
+.dockerignore

@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1
+
+# ── 빌드 ───────────────────────────────────────────────
+FROM eclipse-temurin:21-jdk AS build
+WORKDIR /app
+
+# 의존성 레이어를 소스와 분리해 캐시 적중률을 높인다.
+COPY gradlew settings.gradle build.gradle ./
+COPY gradle gradle
+RUN chmod +x gradlew && ./gradlew --no-daemon dependencies > /dev/null 2>&1 || true
+
+COPY src src
+RUN ./gradlew --no-daemon clean bootJar
+
+# ── 실행 ───────────────────────────────────────────────
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+
+# root로 돌리지 않는다.
+RUN useradd --system --uid 10001 --create-home appuser
+COPY --from=build /app/build/libs/edge-management-*.jar app.jar
+USER appuser
+
+# Vercel은 PORT를 주입하며 기본값은 80이다.
+ENV PORT=80
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC -Xss512k"
+EXPOSE 80
+
+# exec 형태로 실행해야 java가 PID 1을 받아 SIGTERM을 직접 처리한다.
+ENTRYPOINT ["sh", "-c", "exec java -jar app.jar --server.port=${PORT}"]
