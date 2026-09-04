@@ -16,15 +16,20 @@ RUN ./gradlew --no-daemon clean bootJar
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 
-# root로 돌리지 않는다.
-RUN useradd --system --uid 10001 --create-home appuser
+# Vercel 은 기본적으로 80번 포트로 라우팅한다. 1024 미만은 특권 포트라
+# non-root 사용자로는 바인딩이 거부될 수 있어 root 로 실행한다.
+# 격리 경계는 컨테이너 샌드박스가 담당한다.
 COPY --from=build /app/build/libs/edge-management-*.jar app.jar
-USER appuser
+
+# 실행에 쓸 절대 경로가 실제로 존재하는지 빌드 시점에 확인한다.
+# 여기서 깨지면 런타임 500 대신 빌드가 실패해 원인이 바로 드러난다.
+RUN /opt/java/openjdk/bin/java -version && ls -l /app/app.jar
 
 # Vercel은 PORT를 주입하며 기본값은 80이다.
 ENV PORT=80
-ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC -Xss512k"
 EXPOSE 80
 
-# exec 형태로 실행해야 java가 PID 1을 받아 SIGTERM을 직접 처리한다.
-ENTRYPOINT ["sh", "-c", "exec java -jar app.jar --server.port=${PORT}"]
+# java 를 PATH 로 찾지 않고 절대 경로로 실행한다. 런타임이 이미지의 ENV(PATH 포함)를
+# 물려주지 않는 경우가 있어 그때 "java: not found"(exit 127)로 죽는다.
+# exec 로 감싸야 java 가 PID 1 을 받아 SIGTERM 을 직접 처리한다.
+CMD ["/bin/sh", "-c", "exec ${JAVA_HOME:-/opt/java/openjdk}/bin/java -XX:MaxRAMPercentage=75 -XX:+UseSerialGC -jar /app/app.jar --server.port=${PORT:-80}"]
